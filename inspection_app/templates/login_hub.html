@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-12 col-lg-9">
+        <div class="text-center mb-4">
+            <h3 class="fw-bold mb-1">VisionInspect Portal</h3>
+            <p class="text-muted small">Select your role to access your dedicated login page.</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- Administrator Card -->
+            <div class="col-12 col-md-4">
+                <div class="card h-100 shadow-sm text-center p-3">
+                    <div class="card-body d-flex flex-column justify-content-between p-2">
+                        <div class="mb-3">
+                            <i class="bi bi-shield-lock-fill text-danger fs-1 d-block mb-2"></i>
+                            <h5 class="fw-bold mb-1">Administrator</h5>
+                            <p class="text-muted small mb-0">Product catalog and system administration.</p>
+                        </div>
+                        <a href="{% url 'login_admin' %}" class="btn btn-outline-danger btn-sm fw-bold w-100 py-2">
+                            Administrator Login &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engineer Card -->
+            <div class="col-12 col-md-4">
+                <div class="card h-100 shadow-sm text-center p-3">
+                    <div class="card-body d-flex flex-column justify-content-between p-2">
+                        <div class="mb-3">
+                            <i class="bi bi-camera-fill text-primary fs-1 d-block mb-2"></i>
+                            <h5 class="fw-bold mb-1">Engineer</h5>
+                            <p class="text-muted small mb-0">Specimen inspection and batch submission.</p>
+                        </div>
+                        <a href="{% url 'login_engineer' %}" class="btn btn-outline-primary btn-sm fw-bold w-100 py-2">
+                            Engineer Login &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Supervisor Card -->
+            <div class="col-12 col-md-4">
+                <div class="card h-100 shadow-sm text-center p-3">
+                    <div class="card-body d-flex flex-column justify-content-between p-2">
+                        <div class="mb-3">
+                            <i class="bi bi-person-check-fill text-success fs-1 d-block mb-2"></i>
+                            <h5 class="fw-bold mb-1">Supervisor</h5>
+                            <p class="text-muted small mb-0">Inspection history and result reviews.</p>
+                        </div>
+                        <a href="{% url 'login_supervisor' %}" class="btn btn-outline-success btn-sm fw-bold w-100 py-2">
+                            Supervisor Login &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

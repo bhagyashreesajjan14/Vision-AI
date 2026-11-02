@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Engineer Login - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-12 col-md-7 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white text-center py-3 border-0">
+                <i class="bi bi-camera-fill fs-2 d-block mb-1"></i>
+                <h5 class="fw-bold mb-0">Engineer Login</h5>
+            </div>
+            <div class="card-body p-4 bg-white">
+                <form method="POST" action="{% url 'login_engineer' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+
+                    <div class="mb-3">
+                        <label for="eng_username" class="form-label small fw-semibold">Username</label>
+                        <input type="text" name="username" id="eng_username" class="form-control" required autofocus placeholder="Engineer username">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="eng_password" class="form-label small fw-semibold">Password</label>
+                        <div class="input-group">
+                            <input type="password" name="password" id="eng_password" class="form-control" required placeholder="Password">
+                            <button class="btn btn-outline-secondary" type="button" id="togglePasswordBtn" onclick="togglePasswordVisibility('eng_password', 'toggleIcon')">
+                                <i class="bi bi-eye" id="toggleIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="showPasswordCheck" onchange="syncPasswordVisibility('eng_password', this.checked, 'toggleIcon')">
+                        <label class="form-check-label small text-muted" for="showPasswordCheck">
+                            Show password
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
+                        Sign In
+                    </button>
+                </form>
+
+                <div class="text-center mt-3 pt-2 border-top">
+                    <a href="{% url 'login' %}" class="small text-muted text-decoration-none">
+                        &larr; Switch Role Portal
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePasswordVisibility(fieldId, iconId) {
+    const field = document.getElementById(fieldId);
+    const icon = document.getElementById(iconId);
+    const check = document.getElementById('showPasswordCheck');
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+        if (check) check.checked = true;
+    } else {
+        field.type = 'password';
+        icon.className = 'bi bi-eye';
+        if (check) check.checked = false;
+    }
+}
+
+function syncPasswordVisibility(fieldId, isChecked, iconId) {
+    const field = document.getElementById(fieldId);
+    const icon = document.getElementById(iconId);
+    if (isChecked) {
+        field.type = 'text';
+        if (icon) icon.className = 'bi bi-eye-slash';
+    } else {
+        field.type = 'password';
+        if (icon) icon.className = 'bi bi-eye';
+    }
+}
+</script>
+{% endblock %}

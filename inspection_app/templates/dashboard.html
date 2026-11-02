@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">Quality Inspection Dashboard</h3>
+        <p class="text-muted small mb-0">
+            User: <strong>{{ user.username }}</strong> &bull; 
+            Role: <span class="badge {% if profile.is_administrator %}badge-role-admin{% elif profile.is_supervisor %}badge-role-supervisor{% else %}badge-role-engineer{% endif %}">{{ profile.get_role_display }}</span>
+            {% if profile.is_engineer %}
+                &bull; <span class="text-muted">Viewing personal inspections</span>
+            {% else %}
+                &bull; <span class="text-muted">Viewing all inspections</span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'quality_insights' %}" class="btn btn-outline-info btn-sm">
+            <i class="bi bi-bar-chart-line me-1"></i> Insights
+        </a>
+        <a href="{% url 'inspect_single' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle me-1"></i> Single Run
+        </a>
+        <a href="{% url 'inspect_batch' %}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-stack me-1"></i> Batch Upload
+        </a>
+    </div>
+</div>
+
+<!-- Metric Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Total Inspections</span>
+                <div class="h3 fw-bold mb-0 mt-1">{{ total_inspections }}</div>
+                <div class="text-muted small">{{ completed_inspections }} completed</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Normal</span>
+                <div class="h3 fw-bold mb-0 mt-1 text-success">{{ normal_count }}</div>
+                <div class="text-muted small">Passing parts</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Defective</span>
+                <div class="h3 fw-bold mb-0 mt-1 text-danger">{{ defective_count }}</div>
+                <div class="text-muted small">Defective parts</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Defect Rate</span>
+                <div class="h3 fw-bold mb-0 mt-1 text-warning">{{ defect_rate }}%</div>
+                <div class="text-muted small">
+                    {% if profile.is_supervisor and pending_reviews_count > 0 %}
+                        <span class="text-warning fw-semibold">{{ pending_reviews_count }} pending review</span>
+                    {% else %}
+                        Based on completed runs
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Inspections Table -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <h6 class="mb-0 fw-bold">Recent Inspections</h6>
+        <a href="{% url 'history' %}" class="small text-decoration-none">View All History &rarr;</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small">
+                <tr>
+                    <th style="width: 60px;">Image</th>
+                    <th>Filename</th>
+                    <th>Product</th>
+                    <th>Submitter</th>
+                    <th>Status</th>
+                    <th>Prediction</th>
+                    <th>Confidence</th>
+                    <th>Review</th>
+                    <th>Date</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in recent_inspections %}
+                <tr>
+                    <td>
+                        {% if item.image %}
+                            <img src="{{ item.image.url }}" alt="Preview" class="img-thumbnail-small">
+                        {% else %}
+                            <div class="img-thumbnail-small bg-secondary d-flex align-items-center justify-content-center text-white small">N/A</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="fw-semibold text-truncate d-inline-block" style="max-width: 180px;" title="{{ item.original_filename }}">
+                            {{ item.original_filename }}
+                        </span>
+                        <div>
+                            <span class="badge bg-light text-dark border py-0 px-1 font-monospace" style="font-size: 0.7rem;">{{ item.tracking_id }}</span>
+                        </div>
+                    </td>
+                    <td><span class="badge bg-secondary">{{ item.product_id }}</span></td>
+                    <td><small>{{ item.user.username }}</small></td>
+                    <td>
+                        <span class="badge badge-status-{{ item.status|lower }}">{{ item.status }}</span>
+                    </td>
+                    <td>
+                        {% if item.status == 'COMPLETED' %}
+                            {% if item.predicted_class == 'Defective' %}
+                                <span class="badge badge-pred-defective">Defective</span>
+                            {% else %}
+                                <span class="badge badge-pred-normal">Normal</span>
+                            {% endif %}
+                        {% elif item.status == 'FAILED' %}
+                            <span class="text-danger small">Failed</span>
+                        {% else %}
+                            <span class="text-muted small">In Progress</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.status == 'COMPLETED' and item.confidence is not None %}
+                            <span class="small fw-bold">{{ item.confidence|floatformat:4 }}</span>
+                        {% else %}
+                            <span class="text-muted small">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.has_review %}
+                            <span class="badge {% if item.review.review_action == 'CONFIRMED' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {{ item.review.review_action }} ({{ item.review.reviewed_class }})
+                            </span>
+                        {% else %}
+                            {% if item.status == 'COMPLETED' %}
+                                <span class="badge bg-light text-secondary border">Pending</span>
+                            {% else %}
+                                <span class="text-muted small">&mdash;</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td><small class="text-muted">{{ item.created_at|date:"M d, H:i" }}</small></td>
+                    <td class="text-end">
+                        <a href="{% url 'inspection_detail' item.id %}" class="btn btn-outline-secondary btn-sm py-0 px-2">
+                            Details
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center py-4 text-muted small">
+                        No inspections yet. Start a <a href="{% url 'inspect_single' %}">Single Inspection</a> or <a href="{% url 'inspect_batch' %}">Batch Upload</a>.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

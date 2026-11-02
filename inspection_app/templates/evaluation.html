@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Model Evaluation - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-0">Model Evaluation (60 Samples)</h3>
+        <span class="text-muted small">Evaluated using original AI predictions on all 60 labeled development samples</span>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+</div>
+
+<!-- Metrics -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Defect Recall</span>
+                <div class="h3 fw-bold text-success mb-0 mt-1">{{ defect_recall_percent }}%</div>
+                <div class="text-muted small">TP: {{ tp }} &bull; FN: {{ fn }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Accuracy</span>
+                <div class="h3 fw-bold text-primary mb-0 mt-1">{{ accuracy_percent }}%</div>
+                <div class="text-muted small">{{ tp|add:tn }} / {{ total_samples }} correct</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Total Samples</span>
+                <div class="h3 fw-bold text-dark mb-0 mt-1">{{ total_samples }}</div>
+                <div class="text-muted small">30 Normal &bull; 30 Defective</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body p-3">
+                <span class="text-muted small fw-semibold text-uppercase">Failed</span>
+                <div class="h3 fw-bold text-{% if failed_count == 0 %}success{% else %}danger{% endif %} mb-0 mt-1">{{ failed_count }}</div>
+                <div class="text-muted small">Model errors: {{ failed_count }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Confusion Matrix -->
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold">2&times;2 Confusion Matrix</h6>
+            </div>
+            <div class="card-body p-3">
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center align-middle mb-2">
+                        <thead>
+                            <tr class="table-light small">
+                                <th rowspan="2" class="align-middle">Actual</th>
+                                <th colspan="2" class="bg-primary text-white py-1">Predicted</th>
+                            </tr>
+                            <tr class="table-light small">
+                                <th class="text-success">Normal</th>
+                                <th class="text-danger">Defective</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th class="bg-light text-start small ps-2">Normal</th>
+                                <td class="bg-success-subtle fw-bold text-success">{{ tn }}</td>
+                                <td class="bg-danger-subtle fw-bold text-danger">{{ fp }}</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light text-start small ps-2">Defective</th>
+                                <td class="bg-danger-subtle fw-bold text-danger">{{ fn }}</td>
+                                <td class="bg-success-subtle fw-bold text-success">{{ tp }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="small text-muted">
+                    Defect Recall: <code>TP / (TP + FN) = {{ tp }} / ({{ tp }} + {{ fn }}) = {{ defect_recall_percent }}%</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Synthetic Limitations Note -->
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold">Dataset & Model Notes</h6>
+            </div>
+            <div class="card-body p-3 small text-muted">
+                <p class="mb-2">
+                    <strong>Synthetic Dataset Scope:</strong> 
+                    Images are procedurally generated centered metal plates. Binary classification is educational and does not reflect real-world manufacturing line variability or unseen lighting shifts.
+                </p>
+                <p class="mb-0">
+                    <strong>Zero False Negatives Context:</strong> 
+                    100% recall on these 60 synthetic development samples demonstrates successful pipeline integration, not verified zero-defect factory performance.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Labeled Samples Table -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-bold">Evaluation Samples ({{ samples_results|length }})</h6>
+    </div>
+    <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+        <table class="table table-hover align-middle mb-0 table-sm small">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Image ID</th>
+                    <th>Relative Path</th>
+                    <th>Actual</th>
+                    <th>Predicted</th>
+                    <th>Confidence</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in samples_results %}
+                <tr>
+                    <td class="text-muted">{{ forloop.counter }}</td>
+                    <td><strong>{{ s.image_id }}</strong></td>
+                    <td><code>{{ s.relative_path }}</code></td>
+                    <td>
+                        <span class="badge {% if s.actual == 'Defective' %}bg-danger{% else %}bg-success{% endif %}">{{ s.actual }}</span>
+                    </td>
+                    <td>
+                        <span class="badge {% if s.predicted == 'Defective' %}badge-pred-defective{% elif s.predicted == 'Normal' %}badge-pred-normal{% else %}bg-dark{% endif %}">{{ s.predicted }}</span>
+                    </td>
+                    <td>{{ s.confidence|floatformat:4 }}</td>
+                    <td>
+                        {% if s.match %}
+                            <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Match</span>
+                        {% else %}
+                            <span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Mismatch</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Batch Upload - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h3 class="fw-bold mb-0">Batch Inspection</h3>
+            <a href="{% url 'inspect_single' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-camera me-1"></i> Single Inspection
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <!-- Batch Form -->
+            <div class="col-12 col-md-7">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold">Upload Batch (1–10 Images)</h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <form method="POST" enctype="multipart/form-data" id="batchUploadForm">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Product</label>
+                                {{ form.product }}
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-semibold mb-0">Select Images</label>
+                                    <span class="badge bg-secondary" id="filesCountBadge">0 / 10 Selected</span>
+                                </div>
+                                <div class="drop-zone py-4" id="batchDropZone">
+                                    <i class="bi bi-images text-muted fs-1 d-block mb-2"></i>
+                                    <div class="fw-semibold text-success mb-1">Click to select images</div>
+                                    <div class="text-muted small">1 to 10 JPG or PNG files</div>
+                                    {{ form.images }}
+                                </div>
+                            </div>
+
+                            <div class="mb-3 d-none" id="selectedFilesContainer">
+                                <ul class="list-group small" id="selectedFilesList" style="max-height: 180px; overflow-y: auto;"></ul>
+                            </div>
+
+                            <button type="submit" class="btn btn-success w-100 fw-bold py-2 shadow-sm" id="batchSubmitBtn">
+                                Start Batch Inspection
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Batches -->
+            <div class="col-12 col-md-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold">Recent Batches</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            {% for b in recent_batches %}
+                            <a href="{% url 'batch_detail' b.id %}" class="list-group-item list-group-item-action p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong class="text-dark small text-truncate" style="max-width: 160px;">Batch {{ b.id|stringformat:".8s" }}...</strong>
+                                    {% if b.is_finished %}
+                                        <span class="badge bg-success">Done</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Processing</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <span>{{ b.product_id }} &bull; {{ b.total_items }} files</span>
+                                    <span>{{ b.created_at|date:"M d, H:i" }}</span>
+                                </div>
+                            </a>
+                            {% empty %}
+                            <div class="text-center py-4 text-muted small">
+                                No recent batches.
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('batchImagesInput');
+    const badge = document.getElementById('filesCountBadge');
+    const container = document.getElementById('selectedFilesContainer');
+    const list = document.getElementById('selectedFilesList');
+    const submitBtn = document.getElementById('batchSubmitBtn');
+
+    if (input) {
+        input.addEventListener('change', function () {
+            const files = Array.from(this.files);
+            badge.textContent = `${files.length} / 10 Selected`;
+            
+            if (files.length > 10) {
+                badge.className = 'badge bg-danger';
+                alert('Maximum 10 files allowed.');
+                submitBtn.disabled = true;
+            } else if (files.length === 0) {
+                badge.className = 'badge bg-secondary';
+                submitBtn.disabled = true;
+            } else {
+                badge.className = 'badge bg-success';
+                submitBtn.disabled = false;
+            }
+
+            if (files.length > 0) {
+                container.classList.remove('d-none');
+                list.innerHTML = '';
+                files.forEach((f, idx) => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center py-1';
+                    const sizeKB = (f.size / 1024).toFixed(1);
+                    li.innerHTML = `<span>#${idx+1} ${f.name}</span><span class="text-muted small">${sizeKB} KB</span>`;
+                    list.appendChild(li);
+                });
+            } else {
+                container.classList.add('d-none');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch QA Report - {{ batch.batch_tracking_id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+        }
+        .report-page {
+            max-width: 860px;
+            margin: 24px auto;
+            background: #ffffff;
+            padding: 36px 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+        }
+        .report-header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+        }
+        .meta-table th, .meta-table td {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .manifest-table th {
+            background-color: #0f172a !important;
+            color: #ffffff !important;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .manifest-table td {
+            font-size: 12px;
+            padding: 6px 10px;
+            vertical-align: middle;
+        }
+        @media print {
+            body { background: #ffffff; }
+            .report-page {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+                margin: 0;
+                max-width: 100%;
+            }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="no-print bg-dark text-white py-2 px-4 shadow-sm mb-3">
+    <div class="d-flex justify-content-between align-items-center max-width-container" style="max-width: 860px; margin: auto;">
+        <div>
+            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+            <strong>Batch QA Report: {{ batch.batch_tracking_id }}</strong>
+            {% if reportlab_missing %}
+                <span class="badge bg-secondary ms-2">Printable Browser Report</span>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-primary btn-sm">
+                <i class="bi bi-printer me-1"></i> Save as PDF / Print
+            </button>
+            <a href="{% url 'batch_detail' batch.id %}" class="btn btn-outline-light btn-sm">
+                &larr; Back to Batch
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="report-page">
+    <!-- Header -->
+    <div class="report-header d-flex justify-content-between align-items-end">
+        <div>
+            <h4 class="fw-bold mb-0 text-uppercase tracking-tight" style="color: #0f172a;">VisionInspect Quality Assurance Report</h4>
+            <div class="text-muted small">Automated Manufacturing Batch Inspection Manifest & Traceability Record</div>
+        </div>
+        <div class="text-end">
+            <div class="badge bg-dark font-monospace fs-6 px-2 py-1">{{ batch.batch_tracking_id }}</div>
+            <div class="text-muted small mt-1">Generated: {{ batch.created_at|date:"Y-m-d H:i" }}</div>
+        </div>
+    </div>
+
+    <!-- Metadata Table -->
+    <div class="card mb-3 border">
+        <table class="table table-sm meta-table mb-0 bg-light">
+            <tbody>
+                <tr>
+                    <th style="width: 20%;" class="text-muted">Batch Tracking Code:</th>
+                    <td style="width: 30%;"><strong>{{ batch.batch_tracking_id }}</strong></td>
+                    <th style="width: 20%;" class="text-muted">Product Specification:</th>
+                    <td style="width: 30%;"><strong>{{ batch.product.product_id }}</strong> ({{ batch.product.product_name }})</td>
+                </tr>
+                <tr>
+                    <th class="text-muted">System Batch UUID:</th>
+                    <td><span class="font-monospace text-muted small">{{ batch.id }}</span></td>
+                    <th class="text-muted">Submitting Operator:</th>
+                    <td>{{ batch.user.username }} ({{ batch.user.profile.get_role_display|default:'Staff' }})</td>
+                </tr>
+                <tr>
+                    <th class="text-muted">Submission Time:</th>
+                    <td>{{ batch.created_at|date:"Y-m-d H:i:s T" }}</td>
+                    <th class="text-muted">Processing Duration:</th>
+                    <td>{% if batch.processing_duration %}{{ batch.processing_duration }}s{% else %}N/A{% endif %}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Executive Summary Table -->
+    <div class="card mb-4 border">
+        <table class="table table-bordered text-center mb-0 align-middle">
+            <thead class="table-dark small">
+                <tr>
+                    <th>Total Items</th>
+                    <th>Completed</th>
+                    <th>Passed (Normal)</th>
+                    <th>Defective</th>
+                    <th>Failed / Rejected</th>
+                    <th>Batch Defect Rate</th>
+                    <th>Avg Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="fw-bold fs-6">
+                    <td>{{ batch.total_items }}</td>
+                    <td>{{ batch.completed_count }}</td>
+                    <td class="text-success">{{ batch.normal_count }}</td>
+                    <td class="text-danger">{{ batch.defective_count }}</td>
+                    <td class="text-muted">{{ batch.failed_count }}</td>
+                    <td class="text-{% if batch.defective_count > 0 %}danger{% else %}success{% endif %}">{{ batch.defect_rate }}%</td>
+                    <td>{% if batch.average_confidence %}{{ batch.average_confidence|floatformat:4 }}{% else %}&mdash;{% endif %}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Inspection Manifest Table -->
+    <h6 class="fw-bold mb-2 text-uppercase text-secondary" style="font-size: 12px; letter-spacing: 0.5px;">Batch Items Inspection Manifest</h6>
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-striped manifest-table mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Tracking ID</th>
+                    <th>Filename</th>
+                    <th style="width: 14%;">Resolution</th>
+                    <th style="width: 12%;">Status</th>
+                    <th style="width: 15%;">AI Prediction</th>
+                    <th style="width: 12%;">Confidence</th>
+                    <th style="width: 15%;">Supervisor Review</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><code>{{ item.tracking_id }}</code></td>
+                    <td><strong>{{ item.original_filename }}</strong></td>
+                    <td class="text-muted">{% if item.image_width %}{{ item.image_width }}&times;{{ item.image_height }} px{% else %}&mdash;{% endif %}</td>
+                    <td>
+                        <span class="badge {% if item.status == 'COMPLETED' %}bg-success{% elif item.status == 'FAILED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ item.status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if item.status == 'COMPLETED' %}
+                            {% if item.predicted_class == 'Defective' %}
+                                <strong class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Defective</strong>
+                            {% else %}
+                                <strong class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Normal</strong>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.status == 'COMPLETED' and item.confidence is not None %}
+                            <code>{{ item.confidence|floatformat:4 }}</code>
+                        {% else %}
+                            &mdash;
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.has_review %}
+                            <span class="badge {% if item.review.review_action == 'CONFIRMED' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {{ item.review.review_action }} ({{ item.review.reviewed_class }})
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">Unreviewed</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Compliance Footer -->
+    <div class="border-top pt-3 text-muted" style="font-size: 11px;">
+        <p class="mb-1">
+            <strong>Model Integrity & Compliance Verification:</strong> All automated visual screening executed by frozen classifier 
+            <strong>BIT-PLATE-CV-1.0</strong> (Hard decision threshold 0.50). Pre-inference image validation enforced: decoded JPEG/PNG, 
+            maximum 5 MiB size, dimensions [64, 4096] pixels.
+        </p>
+        <p class="mb-0 text-secondary">
+            ISO 9001:2015 Automated QC Audit Standard &bull; VisionInspect Manufacturing Quality Platform
+        </p>
+    </div>
+</div>
+
+</body>
+</html>
+

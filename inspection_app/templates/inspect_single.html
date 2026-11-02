@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Single Inspection - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="fw-bold mb-0">Single Image Inspection</h3>
+            </div>
+            <a href="{% url 'inspect_batch' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-stack me-1"></i> Batch Upload
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <!-- Upload Form -->
+            <div class="col-12 col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold">Select Product & Image</h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <form method="POST" enctype="multipart/form-data" id="singleInspectionForm">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Product</label>
+                                {{ form.product }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Image (JPG or PNG, max 5MB)</label>
+                                <div class="drop-zone py-4" id="dropZone">
+                                    <i class="bi bi-cloud-arrow-up text-muted fs-1 d-block mb-2"></i>
+                                    <div class="fw-semibold text-primary mb-1">Click to select image</div>
+                                    <div class="text-muted small">64x64 to 4096x4096px</div>
+                                    {{ form.image }}
+                                </div>
+                            </div>
+
+                            <!-- Live Image Preview -->
+                            <div class="mb-3 d-none text-center" id="previewContainer">
+                                <img id="imagePreview" src="#" alt="Preview" class="img-fluid rounded border shadow-sm" style="max-height: 200px;">
+                                <div id="previewMeta" class="small text-muted mt-1"></div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" id="submitBtn">
+                                Run Inspection
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Card -->
+            <div class="col-12 col-md-6">
+                {% if result_item %}
+                    <div class="card shadow-sm h-100 border-{% if result_item.status == 'COMPLETED' %}{% if result_item.predicted_class == 'Defective' %}danger{% else %}success{% endif %}{% else %}warning{% endif %}">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 fw-bold">Result</h6>
+                            <span class="badge badge-status-{{ result_item.status|lower }}">{{ result_item.status }}</span>
+                        </div>
+                        <div class="card-body p-4 text-center">
+                            {% if result_item.image %}
+                                <div class="mb-3">
+                                    <img src="{{ result_item.image.url }}" alt="Plate" class="img-fluid rounded border shadow-sm" style="max-height: 220px;">
+                                    <div class="small text-muted mt-1">{{ result_item.original_filename }}</div>
+                                </div>
+                            {% endif %}
+
+                            {% if result_item.status == 'COMPLETED' %}
+                                <div class="mb-3">
+                                    {% if result_item.predicted_class == 'Defective' %}
+                                        <div class="badge badge-pred-defective fs-4 px-4 py-2">
+                                            <i class="bi bi-exclamation-triangle-fill me-1"></i>DEFECTIVE
+                                        </div>
+                                    {% else %}
+                                        <div class="badge badge-pred-normal fs-4 px-4 py-2">
+                                            <i class="bi bi-check-circle-fill me-1"></i>NORMAL
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="bg-light p-3 rounded text-start mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="small text-muted fw-semibold">Confidence:</span>
+                                        <strong class="text-dark">{{ result_item.confidence|floatformat:4 }} ({% widthratio result_item.confidence 1 100 %}%)</strong>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar {% if result_item.predicted_class == 'Defective' %}bg-danger{% else %}bg-success{% endif %}" 
+                                             style="width: {% widthratio result_item.confidence 1 100 %}%;"></div>
+                                    </div>
+                                </div>
+
+                                <a href="{% url 'inspection_detail' result_item.id %}" class="btn btn-outline-primary btn-sm w-100">
+                                    View Full Details & Supervisor Review &rarr;
+                                </a>
+                            {% elif result_item.status == 'FAILED' %}
+                                <div class="alert alert-danger text-start mb-0">
+                                    <strong>Validation Rejected:</strong>
+                                    <div class="small">{{ result_item.failure_reason }}</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card shadow-sm h-100 border-dashed text-center p-5 d-flex flex-column justify-content-center align-items-center bg-light">
+                        <i class="bi bi-image text-muted display-4 mb-3"></i>
+                        <h6 class="fw-bold text-secondary">Awaiting Inspection</h6>
+                        <p class="text-muted small mb-0">
+                            Select a product and upload an image on the left to view results.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const fileInput = document.getElementById('singleImageInput');
+    const previewContainer = document.getElementById('previewContainer');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewMeta = document.getElementById('previewMeta');
+    const dropZone = document.getElementById('dropZone');
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function (e) {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    imagePreview.src = event.target.result;
+                    previewContainer.classList.remove('d-none');
+                    const sizeKB = (file.size / 1024).toFixed(1);
+                    previewMeta.textContent = `${file.name} (${sizeKB} KB)`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (dropZone && fileInput) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                fileInput.files = files;
+                const event = new Event('change');
+                fileInput.dispatchEvent(event);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

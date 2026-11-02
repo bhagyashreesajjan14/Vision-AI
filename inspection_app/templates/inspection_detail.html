@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block title %}Inspection {{ inspection.id }} - VisionInspect{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <a href="{% url 'history' %}" class="text-decoration-none small text-muted d-block mb-1">&larr; Back to History</a>
+                <div class="d-flex align-items-center gap-2">
+                    <h3 class="fw-bold mb-0">Inspection</h3>
+                    <span class="badge bg-dark font-monospace fs-6 px-2 py-1" id="trackingIdBadge">{{ inspection.tracking_id }}</span>
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="navigator.clipboard.writeText('{{ inspection.tracking_id }}'); this.innerText='Copied!';" title="Copy Tracking ID">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'inspection_traceability' inspection.id %}?download=1" class="btn btn-outline-primary btn-sm" title="Download Machine-Readable JSON Audit Manifest">
+                    <i class="bi bi-file-earmark-code me-1"></i> Export Traceability JSON
+                </a>
+                {% if inspection.batch %}
+                    <a href="{% url 'batch_detail' inspection.batch.id %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-stack me-1"></i> View Batch
+                    </a>
+                {% endif %}
+                <a href="{% url 'inspect_single' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> New Inspection
+                </a>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Specimen Image -->
+            <div class="col-12 col-md-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold">Uploaded Image</h6>
+                    </div>
+                    <div class="card-body p-3 text-center">
+                        {% if inspection.image %}
+                            <img src="{{ inspection.image.url }}" alt="Specimen" class="img-fluid rounded border shadow-sm mb-3" style="max-height: 320px; object-fit: contain;">
+                        {% else %}
+                            <div class="alert alert-secondary py-5 text-center">No image file available</div>
+                        {% endif %}
+
+                        <div class="text-start small text-muted bg-light p-3 rounded">
+                            <div><strong>Filename:</strong> {{ inspection.original_filename }}</div>
+                            {% if inspection.image_width and inspection.image_height %}
+                                <div><strong>Dimensions:</strong> {{ inspection.image_width }} &times; {{ inspection.image_height }} px</div>
+                            {% endif %}
+                            {% if inspection.file_size_bytes %}
+                                <div><strong>File Size:</strong> {{ inspection.file_size_bytes|filesizeformat }}</div>
+                            {% endif %}
+                            <div><strong>Submitted by:</strong> {{ inspection.user.username }}</div>
+                            <div><strong>Timestamp:</strong> {{ inspection.created_at|date:"Y-m-d H:i" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Essential Info & Supervisor Review -->
+            <div class="col-12 col-md-7">
+                <!-- Inspection Result Card -->
+                <div class="card shadow-sm mb-4 border-{% if inspection.status == 'COMPLETED' %}{% if inspection.predicted_class == 'Defective' %}danger{% else %}success{% endif %}{% else %}warning{% endif %}">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold">Inspection Result</h6>
+                        <span class="badge badge-status-{{ inspection.status|lower }}">{{ inspection.status }}</span>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <span class="text-muted small fw-bold text-uppercase d-block mb-1">Product</span>
+                            <span class="fs-5 fw-bold text-dark">{{ inspection.product.product_id }}</span>
+                            <span class="text-muted small ms-1">({{ inspection.product.product_name }})</span>
+                        </div>
+
+                        {% if inspection.status == 'COMPLETED' %}
+                            <div class="mb-4">
+                                <span class="text-muted small fw-bold text-uppercase d-block mb-1">AI Prediction</span>
+                                {% if inspection.predicted_class == 'Defective' %}
+                                    <span class="badge badge-pred-defective fs-5 px-3 py-2">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Defective
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-pred-normal fs-5 px-3 py-2">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Normal
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="bg-light p-3 rounded mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small fw-semibold">Model Confidence:</span>
+                                    <strong class="text-dark">{{ inspection.confidence|floatformat:4 }} ({% widthratio inspection.confidence 1 100 %}%)</strong>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar {% if inspection.predicted_class == 'Defective' %}bg-danger{% else %}bg-success{% endif %}" 
+                                         style="width: {% widthratio inspection.confidence 1 100 %}%;"></div>
+                                </div>
+                            </div>
+                        {% elif inspection.status == 'FAILED' %}
+                            <div class="alert alert-danger mb-0">
+                                <strong class="d-block mb-1"><i class="bi bi-x-circle me-1"></i>Inspection Failed</strong>
+                                <span class="small">{{ inspection.failure_reason }}</span>
+                            </div>
+                        {% else %}
+                            <div class="text-muted small py-2">
+                                <span class="spinner-border spinner-border-sm me-1"></span> Inspection in progress...
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Supervisor Review Card -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold">Supervisor Review</h6>
+                        {% if inspection.has_review %}
+                            <span class="badge {% if inspection.review.review_action == 'CONFIRMED' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {{ inspection.review.review_action }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">Unreviewed</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body p-4">
+                        {% if inspection.has_review %}
+                            <div class="alert {% if inspection.review.review_action == 'CONFIRMED' %}alert-success{% else %}alert-warning{% endif %} mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong>
+                                        {% if inspection.review.review_action == 'CONFIRMED' %}
+                                            <i class="bi bi-check-all me-1"></i>Confirmed as {{ inspection.review.reviewed_class }}
+                                        {% else %}
+                                            <i class="bi bi-pencil-square me-1"></i>Corrected to {{ inspection.review.reviewed_class }}
+                                        {% endif %}
+                                    </strong>
+                                    <small class="text-muted">{{ inspection.review.reviewed_at|date:"M d, Y H:i" }}</small>
+                                </div>
+                                <div class="small">Reviewer: <strong>{{ inspection.review.reviewer.username }}</strong></div>
+                                {% if inspection.review.comment %}
+                                    <div class="small mt-2 pt-2 border-top">"{{ inspection.review.comment }}"</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        {% if is_supervisor and inspection.status == 'COMPLETED' %}
+                            <form method="POST" action="{% url 'inspection_detail' inspection.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="form_action" value="review">
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Reviewed Quality Class</label>
+                                    <div class="d-flex gap-2 mb-2">
+                                        <button type="button" class="btn btn-outline-success btn-sm flex-fill" onclick="selectClass('Normal')">
+                                            Normal
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm flex-fill" onclick="selectClass('Defective')">
+                                            Defective
+                                        </button>
+                                    </div>
+                                    {{ review_form.reviewed_class }}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Supervisor Comment (Optional)</label>
+                                    {{ review_form.comment }}
+                                </div>
+
+                                <button type="submit" class="btn btn-success btn-sm fw-bold px-3">
+                                    Save Review
+                                </button>
+                            </form>
+                        {% elif not is_supervisor %}
+                            <p class="text-muted small mb-0">
+                                Review actions are reserved for Supervisors.
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Complete Inspection Traceability & Audit Trail Card -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">
+                    <i class="bi bi-fingerprint text-primary me-2"></i>Full Traceability & Chain of Custody Audit
+                </h6>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'inspection_traceability' inspection.id %}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                        View Raw JSON &rarr;
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3 small">
+                    <div class="col-12 col-md-6">
+                        <div class="p-3 border rounded bg-light h-100">
+                            <span class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.7rem;">Specimen & Origin Provenance</span>
+                            <div class="mb-1"><strong>Tracking Code:</strong> <code class="text-primary">{{ inspection.tracking_id }}</code></div>
+                            <div class="mb-1"><strong>Internal UUID:</strong> <span class="font-monospace text-muted">{{ inspection.id }}</span></div>
+                            <div class="mb-1"><strong>Product Code:</strong> {{ inspection.product.product_id }} - {{ inspection.product.product_name }}</div>
+                            <div class="mb-1">
+                                <strong>Origin Type:</strong> 
+                                {% if inspection.batch %}
+                                    <a href="{% url 'batch_detail' inspection.batch.id %}" class="badge bg-secondary text-decoration-none">
+                                        Batch {{ inspection.batch.batch_tracking_id }}
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">Direct Single Run</span>
+                                {% endif %}
+                            </div>
+                            <div class="mb-1"><strong>Submitting Operator:</strong> {{ inspection.user.username }} ({{ inspection.user.profile.get_role_display|default:'Staff' }})</div>
+                            <div class="mb-1"><strong>Submission Timestamp:</strong> {{ inspection.created_at|date:"Y-m-d H:i:s T" }}</div>
+                            {% if inspection.completed_at %}
+                                <div><strong>Completed Timestamp:</strong> {{ inspection.completed_at|date:"Y-m-d H:i:s T" }} ({{ inspection.processing_duration }}s latency)</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="p-3 border rounded bg-light h-100">
+                            <span class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.7rem;">Image Cryptographic Hash & Integrity</span>
+                            <div class="mb-1"><strong>Original Filename:</strong> {{ inspection.original_filename }}</div>
+                            <div class="mb-1"><strong>Resolution:</strong> {{ inspection.image_width|default:'-' }} &times; {{ inspection.image_height|default:'-' }} px ({{ inspection.image_format|default:'JPEG/PNG' }})</div>
+                            <div class="mb-1"><strong>File Size:</strong> {{ inspection.file_size_bytes|filesizeformat|default:'-' }} ({{ inspection.file_size_bytes }} bytes)</div>
+                            <div class="mb-1">
+                                <strong>SHA-256 Checksum:</strong>
+                                {% if inspection.image_sha256 %}
+                                    <div class="input-group input-group-sm mt-1">
+                                        <input type="text" class="form-control font-monospace" value="{{ inspection.image_sha256 }}" readonly style="font-size: 0.7rem;">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText('{{ inspection.image_sha256 }}'); this.innerText='Copied!';" title="Copy Hash">
+                                            Copy
+                                        </button>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Not computed</span>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2 text-muted" style="font-size: 0.75rem;">
+                                <i class="bi bi-shield-check text-success me-1"></i>Cryptographic digest verifies tamper-evident image provenance.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="p-3 border rounded bg-light h-100">
+                            <span class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.7rem;">AI Classifier Execution Audit</span>
+                            <div class="mb-1"><strong>Model Architecture:</strong> 17-Dimensional Logistic Regression Classifier</div>
+                            <div class="mb-1"><strong>Model Version Tag:</strong> <code>{{ inspection.model_version|default:'BIT-PLATE-CV-1.0' }}</code></div>
+                            <div class="mb-1"><strong>Decision Threshold:</strong> <code>0.50</code> (Hard frozen contract)</div>
+                            <div class="mb-1"><strong>Defect Probability P(Defect):</strong> <code>{{ inspection.defect_probability|floatformat:4|default:'-' }}</code></div>
+                            <div class="mb-1"><strong>Classifier Output Confidence:</strong> <code>{{ inspection.confidence|floatformat:4|default:'-' }}</code></div>
+                            <div><strong>Validation Checks:</strong> <span class="badge bg-success">Passed Dimensions [64, 4096] &le; 5MiB</span></div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="p-3 border rounded bg-light h-100">
+                            <span class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.7rem;">Human Supervisor Review Audit</span>
+                            {% if inspection.has_review %}
+                                <div class="mb-1"><strong>Audit Status:</strong> <span class="badge bg-success">Reviewed & Signed</span></div>
+                                <div class="mb-1"><strong>Supervisor:</strong> {{ inspection.review.reviewer.username }}</div>
+                                <div class="mb-1">
+                                    <strong>Action Taken:</strong> 
+                                    {% if inspection.review.review_action == 'CONFIRMED' %}
+                                        <span class="badge bg-success">CONFIRMED ({{ inspection.review.reviewed_class }})</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">CORRECTED &rarr; {{ inspection.review.reviewed_class }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-1"><strong>Review Timestamp:</strong> {{ inspection.review.reviewed_at|date:"Y-m-d H:i:s T" }}</div>
+                                <div><strong>Auditor Notes:</strong> "{{ inspection.review.comment|default:'No specific comment.' }}"</div>
+                            {% else %}
+                                <div class="mb-1"><strong>Audit Status:</strong> <span class="badge bg-secondary">Pending Supervisor Review</span></div>
+                                <div class="text-muted">Awaiting confirmation or correction by an authorized Quality Supervisor.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectClass(className) {
+    const select = document.getElementById('id_reviewed_class');
+    if (select) {
+        select.value = className;
+    }
+}
+</script>
+{% endblock %}
